@@ -1,0 +1,16 @@
+{
+  "name": "bingo-multiplayer",
+  "version": "1.0.0",
+  "description": "Multiplayer Bingo Game with voice announcements",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^4.18.2",
+    "socket.io": "^4.7.4",
+    "uuid": "^9.0.0"
+  }
+}

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Play Bingo online with friends! Create or join rooms, enjoy auto number calling with voice, and compete in real-time multiplayer Bingo.">
+  <title>🎱 BINGO — Multiplayer Online</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- ═══════ PARTICLES BACKGROUND ═══════ -->
+  <div id="particles"></div>
+
+  <!-- ═══════ HOME SCREEN ═══════ -->
+  <div id="screen-home" class="screen active">
+    <div class="home-container">
+      <div class="logo-section">
+        <div class="logo-glow"></div>
+        <h1 class="logo">BINGO</h1>
+        <p class="tagline">Play with friends online • Real-time multiplayer</p>
+      </div>
+
+      <div class="glass-card home-card">
+        <div class="input-group">
+          <label for="player-name">Your Name</label>
+          <input type="text" id="player-name" placeholder="Enter your name..." maxlength="20" autocomplete="off">
+        </div>
+
+        <div class="divider"><span>Create a New Game</span></div>
+
+        <div class="mode-selector">
+          <label>Number Range</label>
+          <div class="mode-buttons">
+            <button class="mode-btn active" data-max="25" id="mode-25">1 — 25</button>
+            <button class="mode-btn" data-max="50" id="mode-50">1 — 50</button>
+          </div>
+        </div>
+
+        <div class="speed-selector">
+          <label>Caller Speed</label>
+          <div class="mode-buttons">
+            <button class="speed-btn" data-speed="3000" id="speed-fast">Fast (3s)</button>
+            <button class="speed-btn active" data-speed="5000" id="speed-normal">Normal (5s)</button>
+            <button class="speed-btn" data-speed="8000" id="speed-slow">Slow (8s)</button>
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-glow" id="btn-create">
+          <span class="btn-icon">🎮</span> Create Room
+        </button>
+
+        <div class="divider"><span>Or Join a Game</span></div>
+
+        <div class="join-section">
+          <div class="input-group">
+            <label for="room-code-input">Room Code</label>
+            <input type="text" id="room-code-input" placeholder="Enter 6-digit code..." maxlength="6" autocomplete="off" style="text-transform:uppercase; letter-spacing:4px; text-align:center; font-size:1.3rem;">
+          </div>
+          <button class="btn btn-secondary" id="btn-join">
+            <span class="btn-icon">🚀</span> Join Room
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ LOBBY SCREEN ═══════ -->
+  <div id="screen-lobby" class="screen">
+    <div class="lobby-container">
+      <div class="glass-card lobby-card">
+        <h2 class="lobby-title">🎱 Game Lobby</h2>
+        
+        <div class="room-code-display">
+          <span class="room-code-label">ROOM CODE</span>
+          <div class="room-code-value" id="display-room-code">------</div>
+          <button class="btn-copy" id="btn-copy-code" title="Copy code">📋</button>
+        </div>
+
+        <div class="lobby-info">
+          <div class="info-badge" id="lobby-mode-badge">Mode: 1-25</div>
+          <div class="info-badge" id="lobby-speed-badge">Speed: Normal</div>
+        </div>
+
+        <div class="players-section">
+          <h3>Players <span class="player-count" id="player-count">(0)</span></h3>
+          <div class="players-list" id="players-list"></div>
+        </div>
+
+        <div class="lobby-actions">
+          <button class="btn btn-primary btn-glow btn-large" id="btn-start" style="display:none;">
+            <span class="btn-icon">▶️</span> Start Game
+          </button>
+          <p class="waiting-text" id="waiting-text">Waiting for host to start...</p>
+        </div>
+
+        <button class="btn btn-ghost" id="btn-leave-lobby">← Leave Room</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ GAME SCREEN ═══════ -->
+  <div id="screen-game" class="screen">
+    <!-- Number Caller Ticker -->
+    <div class="caller-bar">
+      <div class="caller-bar-inner">
+        <button class="btn-voice-fab" id="btn-voice-toggle" title="Toggle Voice">🔊</button>
+        <div class="ticker-container" id="ticker-container">
+          <div class="ticker-track" id="ticker-track"></div>
+        </div>
+        <div class="current-number-display" id="current-number">—</div>
+      </div>
+    </div>
+
+    <div class="game-layout">
+      <!-- Board First (Mobile Priority) -->
+      <div class="board-section">
+        <div class="bingo-header">
+          <span class="bingo-letter">B</span>
+          <span class="bingo-letter">I</span>
+          <span class="bingo-letter">N</span>
+          <span class="bingo-letter">G</span>
+          <span class="bingo-letter">O</span>
+        </div>
+        <div class="bingo-board" id="bingo-board"></div>
+        <div class="game-actions">
+          <button class="btn btn-bingo" id="btn-bingo" disabled>
+            🎉 BINGO!
+          </button>
+        </div>
+      </div>
+
+      <!-- Called Numbers Panel -->
+      <div class="glass-card called-panel">
+        <h3>Called Numbers <span class="numbers-info">(<span id="numbers-called-count">0</span>/<span id="numbers-total">25</span>)</span></h3>
+        <div class="called-numbers-grid" id="called-numbers-grid"></div>
+      </div>
+
+      <!-- Players Panel -->
+      <div class="glass-card side-panel">
+        <h3>Players</h3>
+        <div class="game-players-list" id="game-players-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ WIN OVERLAY ═══════ -->
+  <div id="win-overlay" class="overlay" style="display:none;">
+    <div class="win-card glass-card">
+      <div class="confetti-container" id="confetti-container"></div>
+      <div class="win-content">
+        <div class="trophy">🏆</div>
+        <h2 id="win-title">BINGO!</h2>
+        <p id="win-message">Player wins!</p>
+        <p id="win-type" class="win-type-text"></p>
+        <div class="win-actions">
+          <button class="btn btn-primary" id="btn-play-again" style="display:none;">🔄 Play Again</button>
+          <button class="btn btn-secondary" id="btn-back-home">🏠 Back to Home</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ TOAST MESSAGES ═══════ -->
+  <div id="toast-container"></div>
+
+  <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
