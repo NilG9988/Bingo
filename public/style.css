@@ -69,7 +69,8 @@ body {
   display: none;
   position: relative;
   z-index: 1;
-  min-height: 100vh;
+  min-height: 80vh; /* Reduced height to avoid footer overlap */
+  width: 100%;
 }
 .screen.active { display: flex; }
 
@@ -296,16 +297,18 @@ body {
 }
 .logo {
   font-family: var(--font-display);
-  font-size: 4.5rem;
+  font-size: clamp(2.5rem, 15vw, 4.5rem); /* Responsive font size */
   font-weight: 900;
   background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple), var(--neon-pink));
   -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
   background-clip: text;
-  letter-spacing: 12px;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  letter-spacing: clamp(4px, 2vw, 12px);
   position: relative;
   text-shadow: none;
-  filter: drop-shadow(0 0 30px rgba(0, 212, 255, 0.4));
+  display: inline-block;
+  white-space: nowrap;
 }
 .tagline {
   color: var(--text-secondary);
