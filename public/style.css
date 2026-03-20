@@ -230,14 +230,69 @@ body {
   letter-spacing: 0.5px;
 }
 
-.error-pulse {
-  animation: error-shake 0.4s ease-in-out;
-  border: 1px solid var(--neon-red) !important;
+/* ─── Setup Number Bank ────────────────────────────── */
+.setup-bank-container {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
 }
-@keyframes error-shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-4px); }
-  75% { transform: translateX(4px); }
+.bank-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 0.8rem;
+  text-align: center;
+}
+.number-bank {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
+.bank-num {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.bank-num:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+  border-color: var(--neon-blue);
+}
+.bank-num.used {
+  opacity: 0.2;
+  pointer-events: none;
+  background: transparent;
+  border-color: transparent;
+}
+
+.setup-grid-cell {
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 50px;
+}
+.setup-grid-cell.filled {
+  background: rgba(0, 212, 255, 0.1);
+  border-color: var(--neon-blue);
+  color: var(--neon-blue);
+  font-weight: 800;
+}
+.setup-grid-cell:hover:not(.free) {
+  background: rgba(255, 255, 255, 0.05);
+}
+.setup-grid-cell.free {
+  cursor: default;
 }
 .logo {
   font-family: var(--font-display);

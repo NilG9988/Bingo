@@ -271,15 +271,28 @@ els.setupBoard.addEventListener('click', (e) => {
 });
 
 els.btnReady.addEventListener('click', () => {
-  const selectedNumbers = Array.from(els.setupBoard.querySelectorAll('.setup-cell.selected'))
-    .map(cell => parseInt(cell.textContent));
+  const boardData = [];
+  const cells = els.setupBoard.querySelectorAll('.bingo-cell');
   
-  if (selectedNumbers.length !== 24) { // 24 because FREE is already there
-    showToast(`Please select exactly 24 numbers for your board (you selected ${selectedNumbers.length}).`, 'error');
+  // Convert flat cells to 2D board
+  let isValid = true;
+  for (let r = 0; r < 5; r++) {
+    const row = [];
+    for (let c = 0; c < 5; c++) {
+      const idx = r * 5 + c;
+      const val = cells[idx].dataset.value;
+      if (!val) isValid = false;
+      row.push(val === 'FREE' ? 'FREE' : parseInt(val));
+    }
+    boardData.push(row);
+  }
+  
+  if (!isValid) {
+    showToast('Please fill all 25 cells!', 'error');
     return;
   }
   
-  socket.emit('player-ready', { selectedNumbers });
+  socket.emit('submit-board', { board: boardData });
   els.btnReady.disabled = true;
   showToast('Board submitted! Waiting for other players...', 'info');
 });
@@ -312,6 +325,75 @@ function renderGamePlayers(players) {
     div.innerHTML = `<div class="game-player-dot"></div><span>${escapeHtml(p.name)}</span>`;
     els.gamePlayersList.appendChild(div);
   });
+}
+
+function renderSetupBoard(maxNum) {
+  els.setupBoard.innerHTML = '';
+  const bank = document.getElementById('setup-number-bank');
+  bank.innerHTML = '';
+
+  // 1. Render Board Cells (Empty)
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < 5; c++) {
+      const div = document.createElement('div');
+      div.className = 'bingo-cell setup-grid-cell';
+      if (r === 2 && c === 2) {
+        div.classList.add('free');
+        div.textContent = 'FREE';
+        div.dataset.value = 'FREE';
+      } else {
+        div.dataset.row = r;
+        div.dataset.col = c;
+        div.addEventListener('click', onSetupCellClick);
+      }
+      els.setupBoard.appendChild(div);
+    }
+  }
+
+  // 2. Render Number Bank
+  for (let i = 1; i <= maxNum; i++) {
+    const num = document.createElement('div');
+    num.className = 'bank-num';
+    num.textContent = i;
+    num.dataset.value = i;
+    num.addEventListener('click', onBankNumClick);
+    bank.appendChild(num);
+  }
+  
+  els.btnReady.disabled = false;
+}
+
+function onBankNumClick(e) {
+  const val = e.currentTarget.dataset.value;
+  if (e.currentTarget.classList.contains('used')) return;
+
+  // Find first empty board cell
+  const emptyCell = Array.from(els.setupBoard.querySelectorAll('.setup-grid-cell:not(.free)'))
+    .find(cell => !cell.dataset.value);
+
+  if (emptyCell) {
+    emptyCell.textContent = val;
+    emptyCell.dataset.value = val;
+    emptyCell.classList.add('filled');
+    e.currentTarget.classList.add('used');
+  } else {
+    showToast('Board is full! Remove a number first.', 'error');
+  }
+}
+
+function onSetupCellClick(e) {
+  const cell = e.currentTarget;
+  const val = cell.dataset.value;
+  if (!val || val === 'FREE') return;
+
+  // Remove from board
+  cell.textContent = '';
+  delete cell.dataset.value;
+  cell.classList.remove('filled');
+
+  // Reactivate in bank
+  const bankNum = document.querySelector(`.bank-num[data-value="${val}"]`);
+  if (bankNum) bankNum.classList.remove('used');
 }
 
 function renderBoard() {
@@ -368,7 +450,8 @@ function renderSetupBoard(maxNum) {
 
 // SETUP ACTIONS
 document.getElementById('btn-randomize-setup').addEventListener('click', () => {
-  const inputs = document.querySelectorAll('.setup-cell input');
+  const cells = els.setupBoard.querySelectorAll('.setup-grid-cell:not(.free)');
+  const bankNums = document.querySelectorAll('.bank-num');
   const nums = [];
   for (let i = 1; i <= state.maxNum; i++) nums.push(i);
   
@@ -378,8 +461,20 @@ document.getElementById('btn-randomize-setup').addEventListener('click', () => {
     [nums[i], nums[j]] = [nums[j], nums[i]];
   }
   
-  inputs.forEach((input, i) => {
-    input.value = nums[i];
+  cells.forEach((cell, i) => {
+    const val = nums[i];
+    cell.textContent = val;
+    cell.dataset.value = val;
+    cell.classList.add('filled');
+  });
+
+  bankNums.forEach(bankNum => {
+    const val = parseInt(bankNum.dataset.value);
+    if (nums.slice(0, 24).includes(val)) {
+      bankNum.classList.add('used');
+    } else {
+      bankNum.classList.remove('used');
+    }
   });
 });
 

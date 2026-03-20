@@ -227,9 +227,9 @@ io.on('connection', (socket) => {
       });
     }
 
-    // Set turn order for turn-based mode
+    // Set turn order for turn-based mode (Join sequence)
     if (room.turnBased) {
-      room.turnOrder = shuffleArray(Array.from(room.players.keys()));
+      room.turnOrder = Array.from(room.players.keys()); // Insertion order
       room.currentTurnIndex = 0;
     } else {
       // Create number pool only for bot mode
