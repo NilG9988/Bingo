@@ -11,11 +11,14 @@ let state = {
   playerName: '',
   roomCode: '',
   isHost: false,
-  maxNum: 25,
-  callerSpeed: 5000,
+  players: [],
   board: [],
-  calledNumbers: [],
-  voiceEnabled: true,
+  maxNum: 25,
+  isVoiceEnabled: true,
+  turnBased: false,
+  manualSetup: false,
+  isMyTurn: false,
+  currentTurnId: null,
   myId: null
 };
 
@@ -23,7 +26,8 @@ let state = {
 const screens = {
   home: document.getElementById('screen-home'),
   lobby: document.getElementById('screen-lobby'),
-  game: document.getElementById('screen-game')
+  game: document.getElementById('screen-game'),
+  setup: document.getElementById('screen-setup')
 };
 
 const els = {
@@ -56,7 +60,16 @@ const els = {
   btnPlayAgain: document.getElementById('btn-play-again'),
   btnBackHome: document.getElementById('btn-back-home'),
   confettiContainer: document.getElementById('confetti-container'),
-  toastContainer: document.getElementById('toast-container')
+  toastContainer: document.getElementById('toast-container'),
+  turnIndicator: document.getElementById('turn-indicator'),
+  turnPlayerName: document.getElementById('turn-player-name'),
+  btnCallNumber: document.getElementById('btn-call-number'),
+  setupBoard: document.getElementById('setup-board'),
+  setupMaxNum: document.getElementById('setup-max-num'),
+  btnReady: document.getElementById('btn-ready'),
+  selectMaxNum: document.getElementById('select-max-num'),
+  checkTurnBased: document.getElementById('check-turn-based'),
+  checkManualSetup: document.getElementById('check-manual-setup')
 };
 
 // ─── Particles Background ──────────────────────────────
@@ -113,7 +126,7 @@ document.querySelectorAll('.mode-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    state.maxNum = parseInt(btn.dataset.max);
+    els.selectMaxNum.value = parseInt(btn.dataset.max);
   });
 });
 
@@ -135,10 +148,15 @@ els.btnCreate.addEventListener('click', () => {
     return;
   }
   state.playerName = name;
-  socket.emit('create-room', {
-    playerName: name,
-    maxNum: state.maxNum,
-    callerSpeed: state.callerSpeed
+  const maxNum = parseInt(els.selectMaxNum.value);
+  const turnBased = els.checkTurnBased.checked;
+  const manualSetup = els.checkManualSetup.checked;
+  
+  socket.emit('create-room', { 
+    playerName: state.playerName, 
+    maxNum,
+    turnBased,
+    manualSetup
   });
 });
 
@@ -192,12 +210,24 @@ els.btnLeaveLobby.addEventListener('click', () => {
 // ═══════ GAME HANDLERS ═══════
 
 // Mark cell
-function onCellClick(row, col) {
-  if (state.board[row][col].marked || state.board[row][col].value === 'FREE') return;
-  if (!state.calledNumbers.includes(state.board[row][col].value)) {
-    showToast('This number hasn\'t been called yet!', 'error');
+function onCellClick(e) {
+  const cell = e.currentTarget;
+  const row = parseInt(cell.dataset.row);
+  const col = parseInt(cell.dataset.col);
+  const cellData = state.board[row][col];
+
+  if (cellData.value === 'FREE') return;
+
+  // Manual Turn Selection
+  if (state.turnBased && state.isMyTurn) {
+    if (cell.classList.contains('marked')) return;
+    
+    socket.emit('call-number', { number: cellData.value });
+    state.isMyTurn = false; // Prevent multiple calls
     return;
   }
+
+  // Normal Auto-bot interaction
   socket.emit('mark-number', { row, col });
 }
 
@@ -208,10 +238,19 @@ els.btnBingo.addEventListener('click', () => {
 
 // Voice Toggle
 els.btnVoiceToggle.addEventListener('click', () => {
-  state.voiceEnabled = !state.voiceEnabled;
-  els.btnVoiceToggle.textContent = state.voiceEnabled ? '🔊' : '🔇';
-  els.btnVoiceToggle.classList.toggle('off', !state.voiceEnabled);
-  showToast(state.voiceEnabled ? 'Voice ON' : 'Voice OFF', 'info');
+  state.isVoiceEnabled = !state.isVoiceEnabled;
+  els.btnVoiceToggle.textContent = state.isVoiceEnabled ? '🔊' : '🔇';
+  els.btnVoiceToggle.classList.toggle('off', !state.isVoiceEnabled);
+  showToast(state.isVoiceEnabled ? 'Voice ON' : 'Voice OFF', 'info');
+});
+
+// Call Number (Turn-based)
+els.btnCallNumber.addEventListener('click', () => {
+  if (state.isMyTurn) {
+    socket.emit('call-number');
+  } else {
+    showToast("It's not your turn!", 'error');
+  }
 });
 
 // Win overlay buttons
@@ -222,6 +261,27 @@ els.btnPlayAgain.addEventListener('click', () => {
 
 els.btnBackHome.addEventListener('click', () => {
   location.reload();
+});
+
+// ═══════ SETUP SCREEN HANDLERS ═══════
+els.setupBoard.addEventListener('click', (e) => {
+  if (e.target.classList.contains('setup-cell') && !e.target.classList.contains('free')) {
+    e.target.classList.toggle('selected');
+  }
+});
+
+els.btnReady.addEventListener('click', () => {
+  const selectedNumbers = Array.from(els.setupBoard.querySelectorAll('.setup-cell.selected'))
+    .map(cell => parseInt(cell.textContent));
+  
+  if (selectedNumbers.length !== 24) { // 24 because FREE is already there
+    showToast(`Please select exactly 24 numbers for your board (you selected ${selectedNumbers.length}).`, 'error');
+    return;
+  }
+  
+  socket.emit('player-ready', { selectedNumbers });
+  els.btnReady.disabled = true;
+  showToast('Board submitted! Waiting for other players...', 'info');
 });
 
 // ═══════ RENDERING FUNCTIONS ═══════
@@ -270,12 +330,90 @@ function renderBoard() {
         if (state.calledNumbers.includes(cell.value) && !cell.marked) {
           div.classList.add('callable');
         }
-        div.addEventListener('click', () => onCellClick(r, c));
+        div.addEventListener('click', onCellClick); // Changed to use the new onCellClick
+        div.dataset.row = r; // Add dataset for row
+        div.dataset.col = c; // Add dataset for col
       }
       els.bingoBoard.appendChild(div);
     }
   }
 }
+
+function renderSetupBoard(maxNum) {
+  const container = document.getElementById('setup-board');
+  container.innerHTML = '';
+
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < 5; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'bingo-cell setup-cell';
+      
+      if (r === 2 && c === 2) {
+        cell.className += ' free';
+        cell.textContent = 'FREE';
+      } else {
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.min = 1;
+        input.max = maxNum;
+        input.placeholder = '?';
+        input.dataset.row = r;
+        input.dataset.col = c;
+        cell.appendChild(input);
+      }
+      container.appendChild(cell);
+    }
+  }
+}
+
+// SETUP ACTIONS
+document.getElementById('btn-randomize-setup').addEventListener('click', () => {
+  const inputs = document.querySelectorAll('.setup-cell input');
+  const nums = [];
+  for (let i = 1; i <= state.maxNum; i++) nums.push(i);
+  
+  // Shuffle
+  for (let i = nums.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [nums[i], nums[j]] = [nums[j], nums[i]];
+  }
+  
+  inputs.forEach((input, i) => {
+    input.value = nums[i];
+  });
+});
+
+document.getElementById('btn-submit-board').addEventListener('click', () => {
+  const inputs = document.querySelectorAll('.setup-cell input');
+  const board = Array(5).fill().map(() => Array(5).fill(0));
+  const values = new Set();
+  let valid = true;
+
+  inputs.forEach(input => {
+    const val = parseInt(input.value);
+    const r = parseInt(input.dataset.row);
+    const c = parseInt(input.dataset.col);
+
+    if (isNaN(val) || val < 1 || val > state.maxNum || values.has(val)) {
+      valid = false;
+      input.classList.add('error-pulse');
+      setTimeout(() => input.classList.remove('error-pulse'), 500);
+    } else {
+      values.add(val);
+      board[r][c] = val;
+    }
+  });
+
+  if (!valid) {
+    showToast(`Enter unique numbers between 1 and ${state.maxNum}`, 'error');
+    return;
+  }
+
+  socket.emit('submit-board', { board });
+  document.getElementById('btn-submit-board').disabled = true;
+  document.getElementById('btn-submit-board').textContent = 'WAITING...';
+  showToast('Board submitted! Waiting for others...', 'success');
+});
 
 function renderCalledNumbersGrid() {
   els.calledNumbersGrid.innerHTML = '';
@@ -290,31 +428,52 @@ function renderCalledNumbersGrid() {
   els.numbersTotal.textContent = state.maxNum;
 }
 
-function updateCalledNumber(number) {
+function updateCalledNumber(number, calledNumbers, callerName) {
+  state.calledNumbers = calledNumbers;
+  // Update current display
+  els.currentNumber.textContent = number;
+  els.currentNumber.classList.remove('pop-anim');
+  void els.currentNumber.offsetWidth; // Trigger reflow
+  els.currentNumber.classList.add('pop-anim');
+
+  // Speak
+  if (state.isVoiceEnabled) {
+    if (callerName) speak(`${callerName} called ${number}`);
+    else speak(number.toString());
+  }
+
+  // Update Ticker
+  const numElem = document.createElement('div');
+  numElem.className = 'ticker-number latest';
+  numElem.textContent = number;
+  
+  if (callerName) {
+    const nameLabel = document.createElement('span');
+    nameLabel.className = 'caller-name-label';
+    nameLabel.textContent = callerName;
+    numElem.appendChild(nameLabel);
+  }
+
+  // Remove latest from previous
+  const prevLatest = els.tickerTrack.querySelector('.latest');
+  if (prevLatest) prevLatest.classList.remove('latest');
+  
+  els.tickerTrack.prepend(numElem);
+  
+  // Auto-scroll ticker to keep latest visible (This logic needs adjustment for prepend)
+  // For prepend, we might not need to scroll right, but ensure it's visible if it overflows left.
+  // For now, removing the auto-scroll logic as it was for append.
+  // If needed, a more complex scroll to start logic would be required.
+
   // Update grid
   const numEl = document.getElementById(`called-num-${number}`);
   if (numEl) {
-    // Remove previous latest
-    document.querySelectorAll('.called-num.latest-called').forEach(el => el.classList.remove('latest-called'));
-    numEl.classList.add('active', 'latest-called');
+    numEl.classList.add('active');
   }
   
   // Update count
   els.numbersCalledCount.textContent = state.calledNumbers.length;
 
-  // Update ticker
-  const tickerNum = document.createElement('div');
-  tickerNum.className = 'ticker-number';
-  tickerNum.textContent = number;
-  
-  // Remove previous latest
-  document.querySelectorAll('.ticker-number.latest').forEach(el => el.classList.remove('latest'));
-  tickerNum.classList.add('latest');
-  els.tickerTrack.appendChild(tickerNum);
-
-  // Auto-scroll ticker to keep latest visible
-  const container = document.getElementById('ticker-container');
-  const track = els.tickerTrack;
   const overflow = track.scrollWidth - container.clientWidth;
   if (overflow > 0) {
     track.style.transform = `translateX(-${overflow}px)`;
@@ -327,10 +486,30 @@ function updateCalledNumber(number) {
 
   // Update board - highlight callable cells
   renderBoard();
+  speak(`${number}`);
+  checkLocalWin();
+}
+
+function updateTurnUI(currentTurnId) {
+  const currentPlayer = state.players.find(p => p.id === currentTurnId);
+  if (currentPlayer) {
+    els.turnPlayerName.textContent = currentPlayer.name;
+    els.turnIndicator.classList.remove('hidden');
+    els.btnCallNumber.disabled = !state.isMyTurn;
+    if (state.isMyTurn) {
+      els.btnCallNumber.classList.add('active');
+    } else {
+      els.btnCallNumber.classList.remove('active');
+    }
+  } else {
+    els.turnIndicator.classList.add('hidden');
+    els.btnCallNumber.disabled = true;
+    els.btnCallNumber.classList.remove('active');
+  }
 }
 
 function speak(text) {
-  if (!state.voiceEnabled) return;
+  if (!state.isVoiceEnabled) return;
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
@@ -403,13 +582,17 @@ socket.on('connect', () => {
   state.myId = socket.id;
 });
 
-socket.on('room-created', ({ roomCode, players }) => {
+socket.on('room-created', ({ roomCode, players, maxNum, turnBased, manualSetup }) => {
   state.roomCode = roomCode;
   state.isHost = true;
+  state.maxNum = maxNum;
+  state.turnBased = turnBased;
+  state.manualSetup = manualSetup;
+  state.players = players;
+
   els.displayRoomCode.textContent = roomCode;
   els.lobbyModeBadge.textContent = `Mode: 1-${state.maxNum}`;
-  const speedLabel = state.callerSpeed <= 3000 ? 'Fast' : state.callerSpeed >= 8000 ? 'Slow' : 'Normal';
-  els.lobbySpeedBadge.textContent = `Speed: ${speedLabel}`;
+  els.lobbySpeedBadge.textContent = state.turnBased ? 'Turn-based' : 'Auto-call';
   els.btnStart.style.display = 'inline-flex';
   els.waitingText.style.display = 'none';
   renderPlayersList(players);
@@ -417,12 +600,17 @@ socket.on('room-created', ({ roomCode, players }) => {
   showToast('Room created! Share the code with friends.', 'success');
 });
 
-socket.on('room-joined', ({ roomCode, players, maxNum }) => {
+socket.on('room-joined', ({ roomCode, players, maxNum, turnBased, manualSetup }) => {
   state.roomCode = roomCode;
   state.isHost = false;
   state.maxNum = maxNum;
+  state.players = players;
+  state.turnBased = turnBased;
+  state.manualSetup = manualSetup;
+  
   els.displayRoomCode.textContent = roomCode;
   els.lobbyModeBadge.textContent = `Mode: 1-${maxNum}`;
+  els.lobbySpeedBadge.textContent = state.turnBased ? 'Turn-based' : 'Auto-call';
   els.btnStart.style.display = 'none';
   els.waitingText.style.display = 'block';
   renderPlayersList(players);
@@ -431,21 +619,26 @@ socket.on('room-joined', ({ roomCode, players, maxNum }) => {
 });
 
 socket.on('player-joined', ({ players, newPlayer }) => {
+  state.players = players;
   renderPlayersList(players);
   showToast(`${newPlayer} joined the game!`, 'info');
 
 });
 
 socket.on('player-left', ({ players, leftPlayer }) => {
+  state.players = players;
   renderPlayersList(players);
   renderGamePlayers(players);
   showToast(`${leftPlayer} left the game.`, 'info');
 });
 
-socket.on('game-started', ({ board, maxNum, playerCount }) => {
+socket.on('game-started', ({ board, maxNum, playerCount, turnBased, currentPlayerTurn }) => {
   state.board = board;
   state.maxNum = maxNum;
   state.calledNumbers = [];
+  state.turnBased = turnBased;
+  state.currentTurnId = currentPlayerTurn;
+  
   els.tickerTrack.innerHTML = '';
   els.tickerTrack.style.transform = 'translateX(0)';
   els.currentNumber.textContent = '—';
@@ -453,16 +646,24 @@ socket.on('game-started', ({ board, maxNum, playerCount }) => {
   
   renderBoard();
   renderCalledNumbersGrid();
-  showScreen('game');
-  showToast('Game started! Listen for numbers...', 'success');
+  
+  // Turn UI
+  if (state.turnBased) {
+    els.turnIndicator.classList.remove('hidden');
+    state.isMyTurn = (state.currentTurnId === socket.id);
+    updateTurnUI(state.currentTurnId);
+    els.btnCallNumber.style.display = 'inline-flex';
+  } else {
+    els.turnIndicator.classList.add('hidden');
+    els.btnCallNumber.style.display = 'none';
+  }
 
+  showScreen('game');
+  showToast('Game started!', 'success');
 });
 
-socket.on('number-called', ({ number, calledNumbers, remaining }) => {
-  state.calledNumbers = calledNumbers;
-  updateCalledNumber(number);
-  speak(`${number}`);
-  checkLocalWin();
+socket.on('number-called', ({ number, calledNumbers, callerName }) => {
+  updateCalledNumber(number, calledNumbers, callerName);
 });
 
 socket.on('cell-marked', ({ row, col }) => {

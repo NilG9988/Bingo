@@ -96,20 +96,24 @@ io.on('connection', (socket) => {
   console.log(`Player connected: ${socket.id}`);
 
   // CREATE ROOM
-  socket.on('create-room', ({ playerName, maxNum, callerSpeed }) => {
+  socket.on('create-room', ({ playerName, maxNum, callerSpeed, turnBased, manualSetup }) => {
     const roomCode = generateRoomCode();
     const room = {
       code: roomCode,
       host: socket.id,
       maxNum: maxNum || 25,
       callerSpeed: callerSpeed || 5000,
+      turnBased: !!turnBased,
+      manualSetup: !!manualSetup,
       players: new Map(),
       calledNumbers: [],
       numberPool: [],
       gameStarted: false,
       gameOver: false,
       callerInterval: null,
-      winners: []
+      winners: [],
+      turnOrder: [],
+      currentTurnIndex: 0
     };
     room.players.set(socket.id, {
       id: socket.id,
@@ -157,7 +161,13 @@ io.on('connection', (socket) => {
 
     const playerList = Array.from(room.players.values()).map(p => ({ id: p.id, name: p.name, isHost: p.isHost }));
     io.to(code).emit('player-joined', { players: playerList, newPlayer: playerName });
-    socket.emit('room-joined', { roomCode: code, players: playerList, maxNum: room.maxNum });
+    socket.emit('room-joined', { 
+      roomCode: code, 
+      players: playerList, 
+      maxNum: room.maxNum,
+      turnBased: room.turnBased,
+      manualSetup: room.manualSetup
+    });
     console.log(`${playerName} joined room ${code}`);
   });
 
@@ -167,35 +177,128 @@ io.on('connection', (socket) => {
     if (!room || room.host !== socket.id) return;
     if (room.players.size < 1) return;
 
+    if (room.manualSetup) {
+      room.gameStarted = "setup"; // Special state
+      io.to(room.code).emit('go-to-setup', { maxNum: room.maxNum });
+      console.log(`Room ${room.code} entering manual setup`);
+    } else {
+      beginMatch(room);
+    }
+  });
+
+  // SUBMIT BOARD (For Manual Setup)
+  socket.on('submit-board', ({ board }) => {
+    const room = rooms.get(socket.roomCode);
+    if (!room || room.gameStarted !== "setup") return;
+
+    const player = room.players.get(socket.id);
+    if (!player) return;
+
+    // Basic validation
+    if (!Array.isArray(board) || board.length !== 5) return;
+    
+    // Convert to server cell format
+    player.board = board.map((row, r) => row.map((val, c) => {
+      if (r === 2 && c === 2) return { value: 'FREE', marked: true };
+      return { value: parseInt(val), marked: false };
+    }));
+
+    player.ready = true;
+    console.log(`Player ${player.name} submitted board in room ${room.code}`);
+
+    // Check if all players are ready
+    const allReady = Array.from(room.players.values()).every(p => p.ready);
+    if (allReady) {
+      beginMatch(room);
+    } else {
+      io.to(room.code).emit('player-ready', { 
+        readyPlayers: Array.from(room.players.values()).filter(p => p.ready).map(p => p.id) 
+      });
+    }
+  });
+
+  function beginMatch(room) {
     room.gameStarted = true;
-    // Generate unique boards per player
-    room.players.forEach((player) => {
-      player.board = generateBoard(room.maxNum);
-    });
+    
+    // Generate boards for those who don't have one (if not manual)
+    if (!room.manualSetup) {
+      room.players.forEach((player) => {
+        player.board = generateBoard(room.maxNum);
+      });
+    }
 
-    // Create number pool
-    const pool = [];
-    for (let i = 1; i <= room.maxNum; i++) pool.push(i);
-    room.numberPool = shuffleArray(pool);
+    // Set turn order for turn-based mode
+    if (room.turnBased) {
+      room.turnOrder = shuffleArray(Array.from(room.players.keys()));
+      room.currentTurnIndex = 0;
+    } else {
+      // Create number pool only for bot mode
+      const pool = [];
+      for (let i = 1; i <= room.maxNum; i++) pool.push(i);
+      room.numberPool = shuffleArray(pool);
+    }
 
-    // Send each player their board
+    // Send each player their board and game info
     room.players.forEach((player) => {
       io.to(player.id).emit('game-started', {
         board: player.board,
         maxNum: room.maxNum,
-        playerCount: room.players.size
+        playerCount: room.players.size,
+        turnBased: room.turnBased,
+        currentPlayerTurn: room.turnBased ? room.turnOrder[0] : null
       });
     });
 
-    // Start auto-caller after a short delay
-    setTimeout(() => {
-      callNextNumber(room);
-      room.callerInterval = setInterval(() => {
+    // Start auto-caller ONLY if NOT turn-based
+    if (!room.turnBased) {
+      setTimeout(() => {
         callNextNumber(room);
-      }, room.callerSpeed);
-    }, 3000);
+        room.callerInterval = setInterval(() => {
+          callNextNumber(room);
+        }, room.callerSpeed);
+      }, 3000);
+    } else {
+      // In turn-based, notify the first player specifically
+      const firstPlayerId = room.turnOrder[0];
+      io.to(firstPlayerId).emit('your-turn');
+    }
 
-    console.log(`Game started in room ${room.code}`);
+    console.log(`Match began in room ${room.code} (Turn-based: ${room.turnBased})`);
+  }
+
+  // CALL NUMBER (For Turn-Based Mode)
+  socket.on('call-number', ({ number }) => {
+    const room = rooms.get(socket.roomCode);
+    if (!room || !room.turnBased || room.gameOver) return;
+
+    // Check if it's this player's turn
+    const currentPlayerId = room.turnOrder[room.currentTurnIndex];
+    if (socket.id !== currentPlayerId) return;
+
+    const num = parseInt(number);
+    if (isNaN(num) || num < 1 || num > room.maxNum) return;
+    if (room.calledNumbers.includes(num)) return;
+
+    room.calledNumbers.push(num);
+    const callerName = room.players.get(socket.id).name;
+
+    io.to(room.code).emit('number-called', {
+      number: num,
+      calledNumbers: room.calledNumbers,
+      callerName: callerName,
+      callerId: socket.id
+    });
+
+    // Move to next turn
+    room.currentTurnIndex = (room.currentTurnIndex + 1) % room.turnOrder.length;
+    const nextPlayerId = room.turnOrder[room.currentTurnIndex];
+
+    io.to(room.code).emit('next-turn', {
+      currentTurnId: nextPlayerId,
+      currentTurnIndex: room.currentTurnIndex
+    });
+
+    io.to(nextPlayerId).emit('your-turn');
   });
 
   // MARK NUMBER
