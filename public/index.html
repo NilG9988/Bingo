@@ -3,220 +3,226 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Play Bingo online with friends! Real-time multiplayer with voice and manual board setup.">
+  <meta name="description" content="Play Bingo online with friends! Create or join rooms, enjoy auto number calling with voice, and compete in real-time multiplayer Bingo.">
   <title>🎱 BINGO — Multiplayer Online</title>
-  
-  <!-- Bootstrap 5 CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
-  <!-- Custom CSS -->
   <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-dark text-white">
-  <!-- Particles Background -->
+<body>
+  <!-- ═══════ PARTICLES BACKGROUND ═══════ -->
   <div id="particles"></div>
 
-  <div class="container py-4">
-    
-    <!-- ═══════ HOME SCREEN ═══════ -->
-    <section id="screen-home" class="screen active d-flex flex-column align-items-center justify-content-center">
-      <div class="text-center mb-4">
-        <div class="logo-section px-3">
-          <h1 class="logo mb-0">BINGO</h1>
-          <p class="text-info opacity-75">Multiplayer • Voice • Turn-Based</p>
-        </div>
+  <!-- ═══════ HOME SCREEN ═══════ -->
+  <div id="screen-home" class="screen active">
+    <div class="home-container">
+      <div class="logo-section">
+        <div class="logo-glow"></div>
+        <h1 class="logo">BINGO</h1>
+        <p class="tagline">Play with friends online • Real-time multiplayer</p>
       </div>
 
-      <div class="w-100" style="max-width: 450px;">
-        <div class="glass-card p-4 mx-auto">
-            <div class="mb-4">
-              <label class="form-label text-info fw-bold">YOUR NAME</label>
-              <input type="text" id="player-name" class="form-control form-control-lg bg-dark text-white border-secondary" placeholder="Enter guest name..." maxlength="20">
-            </div>
+      <div class="glass-card home-card">
+        <div class="input-group">
+          <label for="player-name">Your Name</label>
+          <input type="text" id="player-name" placeholder="Enter your name..." maxlength="20" autocomplete="off">
+        </div>
 
-            <div class="mb-4">
-              <label class="form-label text-info fw-bold">CREATE A NEW GAME</label>
-              <div class="d-flex gap-2 mb-3">
-                <button class="btn btn-outline-info flex-grow-1 mode-btn active" data-max="25">1 — 25</button>
-                <button class="btn btn-outline-info flex-grow-1 mode-btn" data-max="50">1 — 50</button>
-              </div>
-              
-              <div class="form-check form-switch mb-2">
-                <input class="form-check-input" type="checkbox" id="check-manual-setup" checked>
-                <label class="form-check-label" for="check-manual-setup">Manual Board Setup</label>
-              </div>
-              <div class="form-check form-switch mb-3">
-                <input class="form-check-input" type="checkbox" id="check-turn-based">
-                <label class="form-check-label" for="check-turn-based">Turn-Based Mode</label>
-              </div>
+        <div class="divider"><span>Create a New Game</span></div>
 
-              <button id="btn-create" class="btn btn-primary btn-lg w-100 fw-bold shadow-lg">CREATE ROOM</button>
-            </div>
-
-            <div class="hr-text text-muted mb-4"><span>OR JOIN GAME</span></div>
-
-            <div class="mb-2">
-              <label class="form-label text-secondary fw-bold">ROOM CODE</label>
-              <div class="input-group">
-                <input type="text" id="room-code-input" class="form-control form-control-lg bg-dark text-white border-secondary text-center fw-bold" placeholder="ABCDEF" maxlength="6" style="text-transform:uppercase; letter-spacing:4px;">
-                <button id="btn-join" class="btn btn-outline-light px-4 fw-bold">JOIN</button>
-              </div>
-            </div>
+        <div class="mode-selector">
+          <label>Number Range</label>
+          <div class="mode-buttons">
+            <button class="mode-btn active" data-max="25" id="mode-25">1 — 25</button>
+            <button class="mode-btn" data-max="50" id="mode-50">1 — 50</button>
           </div>
         </div>
-      </div>
-    </section>
 
-    <!-- ═══════ LOBBY SCREEN ═══════ -->
-    <section id="screen-lobby" class="screen hidden">
-      <div class="row justify-content-center">
-        <div class="col-md-6 col-lg-5">
-          <div class="glass-card p-4 text-center">
-            <h2 class="h3 mb-4 fw-bold text-info">🎱 Game Lobby</h2>
-            
-            <div class="room-code-panel bg-black bg-opacity-50 p-3 rounded-4 mb-4 border border-info border-opacity-25">
-              <small class="text-secondary d-block mb-1">ROOM CODE</small>
-              <div class="d-flex align-items-center justify-content-center gap-3">
-                <h3 id="display-room-code" class="display-6 fw-bold text-white mb-0" style="letter-spacing: 5px;">------</h3>
-                <button id="btn-copy-code" class="btn btn-sm btn-outline-info rounded-circle" title="Copy">📋</button>
-              </div>
-            </div>
-
-            <div class="d-flex justify-content-center gap-2 mb-4">
-              <span id="lobby-mode-badge" class="badge rounded-pill bg-info text-dark">Mode: 1-25</span>
-              <span id="lobby-speed-badge" class="badge rounded-pill bg-secondary text-white">Auto-Call</span>
-            </div>
-
-            <div class="mb-4">
-              <h5 class="text-start mb-3 border-bottom border-secondary pb-2">Players <span id="player-count" class="text-info">(0)</span></h5>
-              <div id="players-list" class="players-grid"></div>
-            </div>
-
-            <button id="btn-start" class="btn btn-success btn-lg w-100 fw-bold shadow px-5 mb-3" style="display:none;">START GAME</button>
-            <div id="waiting-text" class="text-secondary small italic">Waiting for host to start...</div>
-            
-            <hr class="border-secondary opacity-25 my-4">
-            <button id="btn-leave-lobby" class="btn btn-sm btn-link text-secondary text-decoration-none">← Leave Room</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ═══════ SETUP SCREEN (Manual Board) ═══════ -->
-    <section id="screen-setup" class="screen hidden">
-      <div class="row justify-content-center">
-        <div class="col-12 col-md-10 col-lg-8">
-          <div class="glass-card p-4">
-            <h2 class="h3 mb-2 fw-bold text-center">Setup Your Board</h2>
-            <p class="text-center text-secondary mb-4">Tap numbers to fill your 5x5 board (1 to <span id="setup-max-num" class="text-info">25</span>)</p>
-            
-            <div class="row g-4 align-items-center">
-              <!-- Board Side -->
-              <div class="col-lg-6">
-                <div class="bingo-header-mini d-flex justify-content-around fw-bold text-info mb-1">
-                  <span>B</span><span>I</span><span>N</span><span>G</span><span>O</span>
-                </div>
-                <div id="setup-board" class="bingo-board-setup"></div>
-              </div>
-              
-              <!-- Bank Side -->
-              <div class="col-lg-6">
-                <div class="setup-bank-panel p-3 bg-black bg-opacity-25 rounded-4 border border-secondary">
-                  <h6 class="text-info fw-bold mb-3">Number Bank</h6>
-                  <div id="setup-number-bank" class="number-bank-grid"></div>
-                </div>
-              </div>
-            </div>
-
-            <div class="mt-4 d-flex gap-2">
-              <button id="btn-randomize-setup" class="btn btn-outline-info flex-grow-1">RANDOMIZE</button>
-              <button id="btn-submit-board" class="btn btn-primary flex-grow-1 fw-bold">I'M READY</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ═══════ GAME SCREEN ═══════ -->
-    <section id="screen-game" class="screen hidden">
-      <!-- Top Status Bar -->
-      <div class="row g-2 mb-3">
-        <div class="col-auto">
-          <button id="btn-voice-toggle" class="btn btn-outline-light rounded-circle btn-fab shadow">🔊</button>
-        </div>
-        <div class="col d-flex align-items-center bg-black bg-opacity-50 rounded-pill px-3 py-2 border border-secondary border-opacity-25 shadow-sm overflow-hidden">
-          <div id="ticker-container" class="ticker-container w-100">
-            <div id="ticker-track" class="ticker-track"></div>
-          </div>
-          <div id="current-number" class="display-6 fw-bold ms-3 text-info ticker-current pulse-anim">—</div>
-        </div>
-        <div id="turn-indicator" class="col-auto d-flex align-items-center px-3 bg-dark border border-secondary rounded-pill hidden">
-          <span class="turn-dot me-2"></span>
-          <small id="turn-player-name" class="fw-bold text-nowrap">Player Turn</small>
-        </div>
-      </div>
-
-      <div class="row g-3">
-        <!-- Main Board -->
-        <div class="col-lg-7 col-xl-8">
-          <div class="glass-card p-3 p-md-4">
-            <div class="bingo-header d-flex justify-content-around fw-bold text-info mb-2 fs-2">
-              <span>B</span><span>I</span><span>N</span><span>G</span><span>O</span>
-            </div>
-            <div id="bingo-board" class="bingo-board-main"></div>
-            
-            <div id="btn-call-container" class="mt-4" style="display:none;">
-              <button id="btn-call-number" class="btn btn-warning w-100 btn-lg fw-bold shadow pulse-btn">CALL SELECTED NUMBER</button>
-            </div>
-
-            <div class="mt-4 text-center">
-              <button id="btn-bingo" class="btn btn-success btn-lg px-5 fw-bold shadow-lg" disabled>🎉 BINGO!</button>
+        <div class="setup-row">
+          <div class="setup-group">
+            <label>Game Style</label>
+            <div class="checkbox-group">
+              <label class="checkbox-container">
+                <input type="checkbox" id="check-manual-setup" checked>
+                <span class="checkmark"></span>
+                Manual Board Setup
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" id="check-turn-based">
+                <span class="checkmark"></span>
+                Turn-Based Mode
+              </label>
             </div>
           </div>
         </div>
 
-        <!-- Panels Side -->
-        <div class="col-lg-5 col-xl-4">
-          <!-- Stats Card -->
-          <div class="glass-card p-3 mb-3">
-             <h6 class="text-info fw-bold mb-3 border-bottom border-secondary pb-2">Called Numbers (<span id="numbers-called-count">0</span>/<span id="numbers-total">25</span>)</h6>
-             <div id="called-numbers-grid" class="called-grid-mini"></div>
-          </div>
+        <button class="btn btn-primary btn-glow" id="btn-create">
+          <span class="btn-icon">🎮</span> Create Room
+        </button>
 
-          <!-- Players Card -->
-          <div class="glass-card p-3">
-            <h6 class="text-secondary fw-bold mb-3 border-bottom border-secondary pb-2">Players Score</h6>
-            <div id="game-players-list"></div>
+        <div class="divider"><span>Or Join a Game</span></div>
+
+        <div class="join-section">
+          <div class="input-group">
+            <label for="room-code-input">Room Code</label>
+            <input type="text" id="room-code-input" placeholder="ABCDEF" maxlength="6" autocomplete="off" style="text-transform:uppercase; letter-spacing:4px; text-align:center; font-size:1.3rem;">
           </div>
+          <button class="btn btn-secondary" id="btn-join">
+            <span class="btn-icon">🚀</span> Join Room
+          </button>
         </div>
-      </div>
-    </section>
-
-  </div>
-
-  <!-- ═══════ WIN OVERLAY ═══════ -->
-  <div id="win-overlay" class="win-modal overlay justify-content-center align-items-center" style="display:none;">
-    <div class="glass-card p-5 text-center win-card-anim shadow-2xl overflow-hidden position-relative" style="max-width: 500px;">
-      <div id="confetti-container" class="position-absolute top-0 start-0 w-100 h-100" style="pointer-events:none;"></div>
-      <div class="display-1 mb-3">🏆</div>
-      <h2 id="win-title" class="display-5 fw-black text-info">YOU WON!</h2>
-      <p id="win-message" class="fs-4">Congratulations!</p>
-      <div class="badge bg-purple px-4 py-2 my-4 fs-6 border border-info" id="win-type">Full House</div>
-      
-      <div class="d-grid gap-2 mt-4">
-        <button id="btn-play-again" class="btn btn-primary btn-lg fw-bold" style="display:none;">PLAY AGAIN</button>
-        <button id="btn-back-home" class="btn btn-outline-light">BACK TO HOME</button>
       </div>
     </div>
   </div>
 
-  <!-- ═══════ TOAST CONTAINER ═══════ -->
-  <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+  <!-- ═══════ LOBBY SCREEN ═══════ -->
+  <div id="screen-lobby" class="screen">
+    <div class="lobby-container">
+      <div class="glass-card lobby-card">
+        <h2 class="lobby-title">🎱 Game Lobby</h2>
+        
+        <div class="room-code-display">
+          <span class="room-code-label">ROOM CODE</span>
+          <div class="room-code-value" id="display-room-code">------</div>
+          <button class="btn-copy" id="btn-copy-code" title="Copy code">📋</button>
+        </div>
 
-  <!-- Scripts -->
+        <div class="lobby-info">
+          <div class="info-badge" id="lobby-mode-badge">Mode: 1-25</div>
+          <div class="info-badge" id="lobby-speed-badge">Speed: Normal</div>
+        </div>
+
+        <div class="players-section">
+          <h3>Players <span class="player-count" id="player-count">(0)</span></h3>
+          <div class="players-list" id="players-list"></div>
+        </div>
+
+        <div class="lobby-actions">
+          <button class="btn btn-primary btn-glow btn-large" id="btn-start" style="display:none;">
+            <span class="btn-icon">▶️</span> Start Game
+          </button>
+          <p class="waiting-text" id="waiting-text">Waiting for host to start...</p>
+        </div>
+
+        <button class="btn btn-ghost" id="btn-leave-lobby">← Leave Room</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ SETUP SCREEN (Manual Board) ═══════ -->
+  <div id="screen-setup" class="screen hidden">
+    <div class="glass-card setup-card">
+      <h2 class="title-gradient">Setup Your Board</h2>
+      <p class="subtitle">Tap numbers to fill your board (1 to <span id="setup-max-num">25</span>)</p>
+      
+      <div class="setup-grid-container">
+        <div class="bingo-header">
+          <span class="bingo-letter">B</span>
+          <span class="bingo-letter">I</span>
+          <span class="bingo-letter">N</span>
+          <span class="bingo-letter">G</span>
+          <span class="bingo-letter">O</span>
+        </div>
+        <div id="setup-board" class="bingo-board">
+          <!-- Cells generated by JS -->
+        </div>
+
+        <div class="setup-bank-container">
+          <p class="bank-label">Tap numbers below to fill your grid:</p>
+          <div id="setup-number-bank" class="number-bank">
+            <!-- Numbers 1-25 or 1-50 generated by JS -->
+          </div>
+        </div>
+
+        <div class="setup-actions">
+        <button id="btn-randomize-setup" class="btn btn-outline">RANDOMIZE</button>
+        <button id="btn-submit-board" class="btn btn-primary">READY</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ GAME SCREEN ═══════ -->
+  <div id="screen-game" class="screen">
+    <!-- Number Caller Ticker -->
+    <div class="caller-bar">
+      <div class="caller-bar-inner">
+        <button class="btn-voice-fab" id="btn-voice-toggle" title="Toggle Voice">🔊</button>
+        <div class="ticker-container" id="ticker-container">
+          <div class="ticker-track" id="ticker-track"></div>
+        </div>
+        <div class="current-number-display" id="current-number">—</div>
+      </div>
+    </div>
+
+    <!-- Turn Indicator -->
+    <div id="turn-indicator" class="turn-indicator-box" style="display:none;">
+      <span class="turn-dot"></span>
+      <span id="turn-player-name">Player Turn</span>
+    </div>
+
+    <div class="game-layout">
+      <!-- Board First (Mobile Priority) -->
+      <div class="board-section">
+        <div class="bingo-header">
+          <span class="bingo-letter">B</span>
+          <span class="bingo-letter">I</span>
+          <span class="bingo-letter">N</span>
+          <span class="bingo-letter">G</span>
+          <span class="bingo-letter">O</span>
+        </div>
+        <div class="bingo-board" id="bingo-board"></div>
+        
+        <div id="btn-call-container" class="mt-4 text-center" style="display:none;">
+          <button id="btn-call-number" class="btn btn-primary btn-glow">CALL SELECTED NUMBER</button>
+        </div>
+
+        <div class="game-actions">
+          <button class="btn btn-bingo" id="btn-bingo" disabled>
+            🎉 BINGO!
+          </button>
+        </div>
+      </div>
+
+      <!-- Called Numbers Panel -->
+      <div class="glass-card called-panel">
+        <h3>Called Numbers <span class="numbers-info">(<span id="numbers-called-count">0</span>/<span id="numbers-total">25</span>)</span></h3>
+        <div class="called-numbers-grid" id="called-numbers-grid"></div>
+      </div>
+
+      <!-- Players Panel -->
+      <div class="glass-card side-panel">
+        <h3>Players Score</h3>
+        <div class="game-players-list" id="game-players-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ WIN OVERLAY ═══════ -->
+  <div id="win-overlay" class="overlay" style="display:none;">
+    <div class="win-card glass-card">
+      <div class="confetti-container" id="confetti-container"></div>
+      <div class="win-content">
+        <div class="trophy">🏆</div>
+        <h2 id="win-title">BINGO!</h2>
+        <p id="win-message">Player wins!</p>
+        <div class="win-type-text" id="win-type">Full House</div>
+        <div class="win-actions">
+          <button class="btn btn-primary" id="btn-play-again" style="display:none;">🔄 Play Again</button>
+          <button class="btn btn-secondary" id="btn-back-home">🏠 Back to Home</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ TOAST MESSAGES ═══════ -->
+  <div id="toast-container" class="toast-column"></div>
+
+  <footer class="developer-footer fixed-bottom py-2 text-center text-white-50 opacity-25" style="pointer-events:none; font-size: 0.7rem;">
+    Developed by <span class="fw-bold">Nil Gadhiya</span>
+  </footer>
+
   <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/dist/js/bootstrap.bundle.min.js"></script>
   <script src="config.js"></script>
   <script src="app.js"></script>
 </body>
