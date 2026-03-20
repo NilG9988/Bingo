@@ -66,8 +66,8 @@ const els = {
   btnCallNumber: document.getElementById('btn-call-number'),
   setupBoard: document.getElementById('setup-board'),
   setupMaxNum: document.getElementById('setup-max-num'),
-  btnSubmitBoard: document.getElementById('btn-submit-board'),
-  btnRandomizeSetup: document.getElementById('btn-randomize-setup'),
+  btnReady: document.getElementById('btn-ready'),
+  selectMaxNum: document.getElementById('select-max-num'),
   checkTurnBased: document.getElementById('check-turn-based'),
   checkManualSetup: document.getElementById('check-manual-setup')
 };
@@ -124,11 +124,18 @@ function getAvatarColor(index) {
 // Mode buttons
 document.querySelectorAll('.mode-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active', 'btn-info'));
-    document.querySelectorAll('.mode-btn').forEach(b => b.classList.add('btn-outline-info'));
-    btn.classList.add('active', 'btn-info');
-    btn.classList.remove('btn-outline-info');
-    state.maxNum = parseInt(btn.dataset.max);
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    els.selectMaxNum.value = parseInt(btn.dataset.max);
+  });
+});
+
+// Speed buttons
+document.querySelectorAll('.speed-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.callerSpeed = parseInt(btn.dataset.speed);
   });
 });
 
@@ -141,12 +148,13 @@ els.btnCreate.addEventListener('click', () => {
     return;
   }
   state.playerName = name;
+  const maxNum = parseInt(els.selectMaxNum.value);
   const turnBased = els.checkTurnBased.checked;
   const manualSetup = els.checkManualSetup.checked;
   
   socket.emit('create-room', { 
     playerName: state.playerName, 
-    maxNum: state.maxNum,
+    maxNum,
     turnBased,
     manualSetup
   });
@@ -285,9 +293,8 @@ els.btnReady.addEventListener('click', () => {
   }
   
   socket.emit('submit-board', { board: boardData });
-  els.btnSubmitBoard.disabled = true;
-  els.btnSubmitBoard.textContent = 'WAITING...';
-  showToast('Board submitted! Waiting for others...', 'success');
+  els.btnReady.disabled = true;
+  showToast('Board submitted! Waiting for other players...', 'info');
 });
 
 // ═══════ RENDERING FUNCTIONS ═══════
@@ -405,9 +412,9 @@ function renderBoard() {
         if (state.calledNumbers.includes(cell.value) && !cell.marked) {
           div.classList.add('callable');
         }
-        div.addEventListener('click', onCellClick);
-        div.dataset.row = r;
-        div.dataset.col = c;
+        div.addEventListener('click', onCellClick); // Changed to use the new onCellClick
+        div.dataset.row = r; // Add dataset for row
+        div.dataset.col = c; // Add dataset for col
       }
       els.bingoBoard.appendChild(div);
     }
@@ -415,40 +422,30 @@ function renderBoard() {
 }
 
 function renderSetupBoard(maxNum) {
-  els.setupBoard.innerHTML = '';
-  const bank = document.getElementById('setup-number-bank');
-  bank.innerHTML = '';
+  const container = document.getElementById('setup-board');
+  container.innerHTML = '';
 
-  // 1. Render Board Cells (Empty)
   for (let r = 0; r < 5; r++) {
     for (let c = 0; c < 5; c++) {
-      const div = document.createElement('div');
-      div.className = 'bingo-cell setup-grid-cell';
+      const cell = document.createElement('div');
+      cell.className = 'bingo-cell setup-cell';
+      
       if (r === 2 && c === 2) {
-        div.classList.add('free');
-        div.textContent = 'FREE';
-        div.dataset.value = 'FREE';
+        cell.className += ' free';
+        cell.textContent = 'FREE';
       } else {
-        div.dataset.row = r;
-        div.dataset.col = c;
-        div.addEventListener('click', onSetupCellClick);
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.min = 1;
+        input.max = maxNum;
+        input.placeholder = '?';
+        input.dataset.row = r;
+        input.dataset.col = c;
+        cell.appendChild(input);
       }
-      els.setupBoard.appendChild(div);
+      container.appendChild(cell);
     }
   }
-
-  // 2. Render Number Bank
-  for (let i = 1; i <= maxNum; i++) {
-    const num = document.createElement('div');
-    num.className = 'bank-num';
-    num.textContent = i;
-    num.dataset.value = i;
-    num.addEventListener('click', onBankNumClick);
-    bank.appendChild(num);
-  }
-  
-  els.btnSubmitBoard.disabled = false;
-  els.btnSubmitBoard.textContent = "I'M READY";
 }
 
 // SETUP ACTIONS
@@ -517,7 +514,7 @@ function renderCalledNumbersGrid() {
   els.calledNumbersGrid.innerHTML = '';
   for (let i = 1; i <= state.maxNum; i++) {
     const div = document.createElement('div');
-    div.className = 'called-num-dot';
+    div.className = 'called-num';
     div.textContent = i;
     div.id = `called-num-${i}`;
     if (state.calledNumbers.includes(i)) div.classList.add('active');
@@ -572,16 +569,19 @@ function updateCalledNumber(number, calledNumbers, callerName) {
   // Update count
   els.numbersCalledCount.textContent = state.calledNumbers.length;
 
-  // Auto-scroll ticker
-  const container = document.getElementById('ticker-container');
-  const track = els.tickerTrack;
   const overflow = track.scrollWidth - container.clientWidth;
   if (overflow > 0) {
     track.style.transform = `translateX(-${overflow}px)`;
   }
 
+  // Update current number display
+  els.currentNumber.textContent = number;
+  els.currentNumber.style.transform = 'scale(1.3)';
+  setTimeout(() => els.currentNumber.style.transform = 'scale(1)', 300);
+
   // Update board - highlight callable cells
   renderBoard();
+  speak(`${number}`);
   checkLocalWin();
 }
 
@@ -739,12 +739,6 @@ socket.on('game-started', ({ board, maxNum, playerCount, turnBased, currentPlaye
   els.currentNumber.textContent = '—';
   els.btnBingo.disabled = true;
   
-  if (state.turnBased) {
-    document.getElementById('btn-call-container').style.display = 'block';
-  } else {
-    document.getElementById('btn-call-container').style.display = 'none';
-  }
-
   renderBoard();
   renderCalledNumbersGrid();
   
